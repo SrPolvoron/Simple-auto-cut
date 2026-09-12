@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass
 import json
 import math
 from pathlib import Path
+import re
 import subprocess
 import time
 
@@ -18,6 +19,7 @@ from .media import MediaInfo, probe_media, require_binary
 
 CAPTURE_KINDS = ("quality", "person", "landscape", "situation")
 IMAGE_FORMATS = ("jpg", "png")
+_CAPTURE_DIRECTORY_PATTERN = re.compile(r"captures(\d+)$", re.IGNORECASE)
 
 
 @dataclass(frozen=True, slots=True)
@@ -612,12 +614,12 @@ def export_captures(
     image_format: str = "jpg",
     jpeg_qscale: int = 2,
     overwrite: bool = False,
+    start_index: int = 1,
 ) -> list[Path]:
-    capture_dir = output_dir / "captures"
-    capture_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
     paths: list[Path] = []
-    for index, item in enumerate(result.selected, start=1):
-        destination = capture_dir / f"s{index:03d}_{video.stem}.{image_format}"
+    for index, item in enumerate(result.selected, start=start_index):
+        destination = output_dir / f"s{index:03d}_{video.stem}.{image_format}"
         extract_capture(
             video,
             item.timestamp,
@@ -630,6 +632,26 @@ def export_captures(
     return paths
 
 
+def create_capture_directory(output_root: Path) -> Path:
+    """Create the next ``capturesNNN`` directory directly below *output_root*."""
+    output_root.mkdir(parents=True, exist_ok=True)
+    highest = 0
+    for path in output_root.iterdir():
+        match = _CAPTURE_DIRECTORY_PATTERN.fullmatch(path.name)
+        if path.is_dir() and match:
+            highest = max(highest, int(match.group(1)))
+
+    index = highest + 1
+    while True:
+        directory = output_root / f"captures{index:03d}"
+        try:
+            directory.mkdir()
+            return directory
+        except FileExistsError:
+            # Another invocation may have created the same number after our scan.
+            index += 1
+
+
 def write_capture_manifest(
     destination: Path,
     *,
@@ -640,18 +662,36 @@ def write_capture_manifest(
     reference: list[Path] | None = None,
 ) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
+    if destination.exists():
+        payload = json.loads(destination.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict) or payload.get("mode") != "captures":
+            raise ValueError(f"Cannot append capture results to {destination}: incompatible manifest")
+        batches = payload.setdefault("batches", [])
+        if not isinstance(batches, list):
+            raise ValueError(f"Cannot append capture results to {destination}: invalid batches field")
+    else:
+        payload = {"mode": "captures", "batches": []}
+        batches = payload["batches"]
+
+    def relative_file(index: int) -> str | None:
+        if index >= len(files):
+            return None
+        try:
+            return files[index].relative_to(destination.parent).as_posix()
+        except ValueError:
+            return str(files[index])
+
+    batches.append({
         "source": str(source),
-        "mode": "captures",
         "kind": kind,
         "reference_images": [str(path) for path in (reference or [])],
         "analysis": result.as_dict(),
         "captures": [
             {
                 **item.as_dict(),
-                "file": files[index].name if index < len(files) else None,
+                "file": relative_file(index),
             }
             for index, item in enumerate(result.selected)
         ],
-    }
+    })
     destination.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

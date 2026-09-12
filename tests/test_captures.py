@@ -1,10 +1,19 @@
+import json
 from pathlib import Path
 import shutil
 import subprocess
 
 import pytest
 
-from video_autocut.captures import analyze_captures, export_captures
+from video_autocut.captures import (
+    CaptureCandidate,
+    CaptureMetrics,
+    CaptureResult,
+    analyze_captures,
+    create_capture_directory,
+    export_captures,
+    write_capture_manifest,
+)
 from video_autocut.config import CaptureConfig
 from video_autocut.preview import generate_capture_preview
 
@@ -60,3 +69,59 @@ def test_capture_config_defaults_are_sane():
     assert config.sample_interval_s > 0
     assert config.refine_fps > 0
     assert config.jpeg_qscale >= 1
+
+
+def test_capture_directories_are_numbered_after_the_highest_existing_one(tmp_path: Path):
+    (tmp_path / "captures001").mkdir()
+    (tmp_path / "captures003").mkdir()
+    (tmp_path / "captures-not-a-batch").mkdir()
+
+    directory = create_capture_directory(tmp_path)
+
+    assert directory == tmp_path / "captures004"
+    assert directory.is_dir()
+
+
+def test_capture_manifest_accumulates_batches_and_uses_relative_paths(tmp_path: Path):
+    result = CaptureResult(
+        selected=[
+            CaptureCandidate(
+                timestamp=1.0,
+                metrics=CaptureMetrics(
+                    10.0, 0.5, 0.1, 0.1, 0.2, 0.5,
+                    0.1, 0.1, 0.1, 0.0, 0.0, False,
+                ),
+            )
+        ],
+        elapsed_s=0.5,
+        decoder="cpu",
+        gpu_scale=False,
+        sampled_frames=1,
+        sample_fps=1.0,
+        min_gap_s=0.0,
+    )
+    first_directory = create_capture_directory(tmp_path)
+    first_file = first_directory / "s001_video.jpg"
+    first_file.touch()
+    manifest = tmp_path / "manifest.json"
+
+    write_capture_manifest(
+        manifest,
+        source=Path("video.mp4"),
+        kind="quality",
+        result=result,
+        files=[first_file],
+    )
+    write_capture_manifest(
+        manifest,
+        source=Path("other-video.mp4"),
+        kind="landscape",
+        result=result,
+        files=[],
+    )
+
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    assert payload["mode"] == "captures"
+    assert len(payload["batches"]) == 2
+    assert payload["batches"][0]["captures"][0]["file"] == "captures001/s001_video.jpg"
+    assert payload["batches"][1]["captures"][0]["file"] is None

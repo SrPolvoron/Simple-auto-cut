@@ -10,6 +10,7 @@ from .captures import (
     CAPTURE_KINDS,
     IMAGE_FORMATS,
     analyze_captures,
+    create_capture_directory,
     export_captures,
     write_capture_manifest,
 )
@@ -814,6 +815,8 @@ def _capture_matcher(args: argparse.Namespace, config: AppConfig) -> tuple[FaceM
 
 def _captures_mode(args: argparse.Namespace, config: AppConfig, videos: list[Path], output_root: Path) -> None:
     matcher, references = _capture_matcher(args, config)
+    capture_dir: Path | None = None
+    next_capture_index = 1
     if references:
         print("[captures] reference:", ", ".join(str(path) for path in references))
 
@@ -828,31 +831,34 @@ def _captures_mode(args: argparse.Namespace, config: AppConfig, videos: list[Pat
             min_gap_s=args.min_gap,
             progress=not args.no_progress,
         )
-        out_dir = output_directory(output_root, video)
         files: list[Path] = []
         preview_pages: list[Path] = []
         if not args.dry_run:
+            if capture_dir is None:
+                capture_dir = create_capture_directory(output_root)
             files = export_captures(
                 video,
                 result,
-                out_dir,
+                capture_dir,
                 image_format=args.image_format,
                 jpeg_qscale=config.captures.jpeg_qscale,
                 overwrite=config.general.overwrite,
+                start_index=next_capture_index,
             )
+            next_capture_index += len(files)
             if args.preview:
                 preview_pages = generate_capture_preview(
                     files,
                     [item.timestamp for item in result.selected],
                     [item.final_score for item in result.selected],
-                    out_dir,
+                    capture_dir,
                     width=args.thumbnail_width,
                 )
         elif args.preview:
             print("  --preview ignored during --dry-run because no still images are exported")
 
         write_capture_manifest(
-            out_dir / "captures.json",
+            output_root / "manifest.json",
             source=video,
             kind=args.kind,
             result=result,
@@ -865,7 +871,7 @@ def _captures_mode(args: argparse.Namespace, config: AppConfig, videos: list[Pat
             f"gpu-scale={'yes' if result.gpu_scale else 'no'}"
         )
         if files:
-            print(f"  images: {out_dir / 'captures'}")
+            print(f"  images: {capture_dir}")
         if preview_pages:
             print(f"  preview pages: {len(preview_pages)}")
 

@@ -492,15 +492,18 @@ La estructura de salida es:
 
 ```text
 D:\Autocut\Capturas\
-└── viaje\
-    ├── captures\
-    │   ├── s001_viaje.jpg
-    │   ├── s002_viaje.jpg
-    │   ├── s003_viaje.jpg
-    │   ├── ...
-    │   └── s010_viaje.jpg
-    └── captures.json
+├── captures001\
+│   ├── s001_viaje.jpg
+│   ├── s002_viaje.jpg
+│   ├── s003_viaje.jpg
+│   ├── ...
+│   └── s010_viaje.jpg
+├── captures002\
+│   └── ...
+└── manifest.json
 ```
+
+Cada ejecución crea la siguiente carpeta correlativa (`captures001`, `captures002`, ...), sin incluir el nombre o identificador temporal del vídeo en la ruta. El único `manifest.json` de la raíz se conserva y acumula los lotes de capturas.
 
 ## Capturas con personas
 
@@ -624,7 +627,7 @@ Con CUDA y un FFmpeg compatible, el escaneo inicial puede reducir el fotograma e
 python -m video_autocut.cli captures "C:\Videos\viaje.mp4" --count 10 --kind landscape --dry-run
 ```
 
-Genera `captures.json` con timestamps y puntuaciones, pero no exporta las imágenes.
+Actualiza `manifest.json` con timestamps y puntuaciones, pero no exporta las imágenes.
 
 Los alias siguientes son equivalentes:
 
@@ -754,7 +757,7 @@ Dependiendo del modo puede contener:
 - estadísticas de rendimiento de `black`;
 - nombres de previews y reportes.
 
-Las previews son opcionales mediante `--preview` y los reportes HTML mediante `--report`. El modo `captures` genera un `captures.json` específico con timestamps, métricas y puntuaciones de cada fotograma seleccionado.
+Las previews son opcionales mediante `--preview` y los reportes HTML mediante `--report`. El modo `captures` usa un único `manifest.json` en la raíz de salida, que acumula los timestamps, métricas y puntuaciones de cada lote.
 
 ---
 
