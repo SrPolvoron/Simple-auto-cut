@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simple-video-autocut"
+version = "0.6.0"
+description = "Video autocut, scene splitting, batch trimming and automatic best-frame capture selection."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "SrPolvoron" }
+]
+keywords = ["video", "ffmpeg", "opencv", "face-recognition", "autocut", "scene-detection", "trim", "screenshots", "captures"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Multimedia :: Video",
+]
+dependencies = [
+  "numpy>=2.0,<3",
+  "opencv-python>=4.10,<5",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<9",
+]
+
+[project.scripts]
+video-autocut = "video_autocut.cli:main"
+autocut = "video_autocut.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

@@ -1,0 +1,87 @@
+[general]
+output_dir = "exports"
+video_extensions = [".mp4", ".mov", ".mkv", ".m4v", ".avi", ".webm"]
+overwrite = false
+write_manifest = true
+
+[person]
+# FFmpeg scene score threshold. Higher = fewer scene cuts.
+scene_threshold = 0.30
+# Ignore detected scenes shorter than this many seconds by merging them forward.
+min_scene_duration_s = 0.35
+# Sample one frame every N seconds inside each scene.
+sample_interval_s = 0.50
+# YuNet face detector confidence.
+face_detection_threshold = 0.80
+# Resize sampled video frames for faster/more stable face analysis.
+analysis_max_side = 1280
+# SFace cosine similarity. OpenCV documents 0.363 as the LFW same-identity threshold.
+face_similarity_threshold = 0.363
+# A single confident match is enough to keep a scene; this prioritizes recall.
+min_matching_samples = 1
+
+[black]
+# Fast first pass: 0.50 s = 2 FPS. Frames are resized before they reach Python.
+sample_interval_s = 0.50
+analysis_max_side = 320
+
+# Only the boundaries of candidate black intervals are rescanned at high FPS.
+refine_enabled = true
+refine_fps = 20.0
+refine_margin_s = 1.0
+refine_stability_s = 0.15
+# Merge nearby refinement windows to reduce FFmpeg decoder restarts.
+refine_batch_gap_s = 2.0
+
+# auto tries NVIDIA CUDA/NVDEC first when FFmpeg exposes it, then falls back to CPU.
+# Other accepted values: cpu, cuda, d3d11va.
+hardware_decode = "auto"
+
+# Temporal filtering. Short detector glitches are bridged so sensor noise does not
+# create dozens of tiny clips.
+min_black_duration_s = 0.75
+bridge_gap_s = 0.50
+min_keep_duration_s = 0.75
+
+# 8-bit luminance thresholds (0 = black, 255 = white).
+extreme_mean_luma = 6.0
+extreme_p99_luma = 20.0
+dark_mean_luma = 16.0
+dark_p95_luma = 26.0
+dark_p99_luma = 45.0
+
+# Maximum fraction of edge pixels for a merely-dark frame to be considered unusable.
+max_edge_ratio = 0.006
+
+[scenes]
+# FFmpeg scene score. Lower values detect more cuts; higher values require stronger changes.
+threshold = 0.30
+# Merge tiny scene fragments forward so flashes/transitions do not become standalone clips.
+min_scene_duration_s = 0.25
+
+[trim]
+# Drop kept fragments shorter than this when trim regions overlap on very short videos.
+min_keep_duration_s = 0.01
+
+[captures]
+# Muestreo inicial para localizar buenos momentos. 1.0 s = 1 FPS.
+sample_interval_s = 1.0
+analysis_max_side = 720
+hardware_decode = "auto"
+
+# Tras seleccionar un momento, busca el mejor fotograma en +/- 0.50 s a 8 FPS.
+refine_window_s = 0.50
+refine_fps = 8.0
+
+# 0 = separación automática según duración y número de capturas.
+min_gap_s = 0.0
+edge_guard_s = 0.25
+jpeg_qscale = 2
+
+# Pesos de calidad visual.
+sharpness_weight = 0.42
+exposure_weight = 0.18
+clipping_weight = 0.12
+contrast_weight = 0.10
+entropy_weight = 0.08
+stability_weight = 0.10
